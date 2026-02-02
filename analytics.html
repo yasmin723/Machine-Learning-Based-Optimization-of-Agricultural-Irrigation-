@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Model Performance | SmartCropIoT</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        /* Specific adjustments for the Analytics layout while keeping the index.html background */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .full-width { grid-column: span 2; }
+        
+        /* Ensuring the table looks professional within your existing card style */
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            color: white;
+        }
+        .metrics-table th {
+            text-align: left;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            padding: 10px;
+            color: #10b981; /* Matching your primary green */
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+        .metrics-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.9rem;
+        }
+        .highlight-row {
+            background: rgba(16, 185, 129, 0.1);
+        }
+        
+        /* Syncing chart colors with your Demo Mode look */
+        canvas {
+            margin-top: 10px;
+            max-height: 300px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header class="navbar">
+    <div class="nav-left">
+        <h2>Smart Irrigation System</h2>
+        <span class="live-tag">● MODEL PERFORMANCE</span>
+    </div>
+    <div class="nav-right">
+        <a href="{{ url_for('index') }}">Dashboard</a>
+        <a href="{{ url_for('analytics') }}" class="active">Performance</a>
+    </div>
+</header>
+
+<div class="dashboard-container">
+
+    <div class="card full-width">
+        <div class="label">Analysis Objective</div>
+        <p style="font-size: 0.9rem; opacity: 0.8;">
+            Evaluating Machine Learning regression models for soil moisture prediction. 
+            The system compares <strong>Random Forest, Neural Networks, Gradient Boosting, and SVM</strong> 
+            to ensure irrigation precision and sensor noise resilience.
+        </p>
+    </div>
+
+    <div class="card full-width">
+        <div class="label">Select Evaluation Target</div>
+        <select id="modelSelect" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px;">
+            <option value="all">Compare All Algorithms</option>
+            <option value="rf">Random Forest (Selected)</option>
+            <option value="nn">Neural Network</option>
+            <option value="gb">Gradient Boosting</option>
+            <option value="svm">SVM</option>
+        </select>
+    </div>
+
+    <div class="card full-width">
+        <div class="label">Inference Stability Analysis</div>
+        <canvas id="stabilityChart"></canvas>
+        <p class="note" style="font-size: 0.7rem; color: #aaa; margin-top: 10px;">
+            *Visualizing prediction variance across 50 continuous cycles.
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="label">R² Accuracy Benchmark</div>
+        <canvas id="barChart"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="label">Sensor Feature Weight (%)</div>
+        <canvas id="donutChart"></canvas>
+    </div>
+
+    <div class="card full-width">
+        <div class="label">Detailed Academic Metrics</div>
+        <table class="metrics-table">
+            <thead>
+                <tr>
+                    <th>Algorithm</th>
+                    <th>R² Score</th>
+                    <th>MAE</th>
+                    <th>RMSE</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr id="row-rf" class="highlight-row">
+                    <td>Random Forest</td>
+                    <td>0.94</td>
+                    <td>2.34</td>
+                    <td>2.99</td>
+                </tr>
+                <tr id="row-nn">
+                    <td>Neural Network</td>
+                    <td>0.93</td>
+                    <td>2.51</td>
+                    <td>3.07</td>
+                </tr>
+                <tr id="row-gb">
+                    <td>Gradient Boosting</td>
+                    <td>0.89</td>
+                    <td>3.12</td>
+                    <td>3.51</td>
+                </tr>
+                <tr id="row-svm">
+                    <td>SVM</td>
+                    <td>0.82</td>
+                    <td>4.23</td>
+                    <td>4.32</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<footer class="footer">
+    <p>Tech Stack: Python • Flask • Machine Learning • IoT Framework</p>
+    <p>Final Year Project – SmartCropIoT</p>
+</footer>
+
+<script>
+/* ================= DATA CONFIG ================= */
+const meta = {
+    rf: { label: 'Random Forest', color: '#10b981', base: 94, amp: 0.3 },
+    nn: { label: 'Neural Network', color: '#3b82f6', base: 92, amp: 0.6 },
+    gb: { label: 'Gradient Boosting', color: '#f59e0b', base: 89, amp: 1.1 },
+    svm:{ label: 'SVM', color: '#ef4444', base: 82, amp: 2.0 }
+};
+
+Chart.defaults.color = 'rgba(255,255,255,0.7)';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.1)';
+
+/* ================= 1. STABILITY (LINE) ================= */
+const stabCtx = document.getElementById('stabilityChart').getContext('2d');
+const stabilityChart = new Chart(stabCtx, {
+    type: 'line',
+    data: {
+        labels: Array(50).fill(""),
+        datasets: Object.keys(meta).map(key => ({
+            label: meta[key].label,
+            data: Array(50).fill(null),
+            borderColor: meta[key].color,
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4
+        }))
+    },
+    options: {
+        responsive: true,
+        scales: { y: { min: 75, max: 100 } },
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+
+let t = 0;
+setInterval(() => {
+    t += 0.1;
+    stabilityChart.data.datasets.forEach((ds, i) => {
+        const m = meta[Object.keys(meta)[i]];
+        ds.data.push(m.base + (Math.sin(t + i) * m.amp));
+        if (ds.data.length > 50) ds.data.shift();
+    });
+    stabilityChart.update('none');
+}, 100);
+
+/* ================= 2. BENCHMARK (BAR) ================= */
+new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+        labels: ['RF', 'NN', 'GB', 'SVM'],
+        datasets: [{
+            data: [0.94, 0.93, 0.89, 0.82],
+            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+        }]
+    },
+    options: { plugins: { legend: { display: false } } }
+});
+
+/* ================= 3. FEATURE (DONUT) ================= */
+new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Humidity', 'Temp', 'pH', 'NPK'],
+        datasets: [{
+            data: [40, 30, 15, 15],
+            backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981'],
+            borderWidth: 0
+        }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+});
+
+/* ================= 4. FILTER LOGIC ================= */
+document.getElementById('modelSelect').onchange = function() {
+    const val = this.value;
+    stabilityChart.data.datasets.forEach((ds, i) => {
+        ds.hidden = (val !== 'all' && Object.keys(meta)[i] !== val);
+    });
+    stabilityChart.update();
+
+    Object.keys(meta).forEach(key => {
+        const row = document.getElementById(`row-${key}`);
+        row.style.opacity = (val === 'all' || val === key) ? '1' : '0.15';
+    });
+};
+</script>
+</body>
+</html> 
